@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Space Navigation</title>
+    <style>
+        /* General body styling */
+        body {
+            font-family: "Times New Roman", Times, serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5dc; /* Beige background */
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Main container */
+        #main-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            max-width: 90%;
+            width: 800px;
+        }
+
+        /* Heading and paragraph styling */
+        h1 {
+            font-size: 1.8em;
+            color: #333;
+            margin-bottom: 0.5em;
+        }
+
+        p {
+            font-size: 1em;
+            color: #555;
+            margin-top: 0;
+            margin-bottom: 1em;
+            max-width: 600px;
+        }
+
+        /* Canvas styling */
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            width: 100%;
+            max-width: 750px;
+            height: 450px;
+            margin-top: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Button styling */
+        #start-navigation {
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            color: #fff;
+            background-color: #007b83;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 1em;
+        }
+
+        #start-navigation:hover {
+            background-color: #005e62;
+        }
+
+        /* Information panel */
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border-radius: 8px;
+            display: none;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <h1>3D Space Navigation</h1>
+        <p>Navigate through space with an interactive 3D simulator. Click "Start Navigation" to begin your journey.</p>
+        <canvas id="space-canvas"></canvas>
+        <button id="start-navigation">Start Navigation</button>
+        <div id="info-panel"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene, camera, and renderer setup
+        const canvas = document.getElementById("space-canvas");
+        const infoPanel = document.getElementById("info-panel");
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // Lighting
+        const light = new THREE.PointLight(0xffffff, 1, 100);
+        light.position.set(0, 0, 10);
+        scene.add(light);
+
+        // Planets with info
+        const planets = [];
+        const planetInfo = [
+            { name: "Earth", color: 0x1e90ff, distance: 2, info: "The third planet from the Sun, known for its life-supporting atmosphere." },
+            { name: "Mars", color: 0xd9534f, distance: 3.5, info: "A cold, desert-like planet with a reddish appearance." },
+            { name: "Jupiter", color: 0xe67e22, distance: 5, info: "The largest planet in our solar system, known for its Great Red Spot." }
+        ];
+
+        let lastHoveredPlanet = null;
+
+        // Create planets
+        planetInfo.forEach((pInfo, index) => {
+            const geometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ color: pInfo.color });
+            const planet = new THREE.Mesh(geometry, material);
+            planet.position.x = pInfo.distance;
+            planet.userData = { name: pInfo.name, info: pInfo.info };
+            planets.push(planet);
+            scene.add(planet);
+        });
+
+        // Position the camera
+        camera.position.z = 8;
+
+        // Animation controls
+        let isAnimating = false;
+
+        function animate() {
+            if (isAnimating) {
+                planets.forEach((planet, index) => {
+                    planet.rotation.y += 0.01;
+                    planet.rotation.x += 0.005;
+                    planet.position.x = Math.sin(Date.now() * 0.001 + index) * planetInfo[index].distance;
+                    planet.position.z = Math.cos(Date.now() * 0.001 + index) * planetInfo[index].distance;
+                });
+            }
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // Start navigation button
+        document.getElementById("start-navigation").addEventListener("click", () => {
+            isAnimating = !isAnimating;
+            document.getElementById("start-navigation").innerText = isAnimating ? "Stop Navigation" : "Start Navigation";
+        });
+
+        // Hover information
+        function onMouseMove(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(planets);
+
+            if (intersects.length > 0 && lastHoveredPlanet !== intersects[0].object) {
+                lastHoveredPlanet = intersects[0].object;
+                const { name, info } = lastHoveredPlanet.userData;
+                infoPanel.style.display = "block";
+                infoPanel.innerHTML = `<strong>${name}</strong><br>${info}`;
+            } else if (intersects.length === 0 && lastHoveredPlanet) {
+                lastHoveredPlanet = null;
+                infoPanel.style.display = "none";
+            }
+        }
+        canvas.addEventListener("mousemove", onMouseMove);
+
+        // Adjust canvas size on window resize
+        window.addEventListener("resize", () => {
+            renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+            camera.aspect = canvas.clientWidth / canvas.clientHeight;
+            camera.updateProjectionMatrix();
+        });
+    </script>
+</body>
+</html>
